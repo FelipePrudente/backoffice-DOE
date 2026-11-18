@@ -1,0 +1,29 @@
+{
+  "name": "doe-backoffice",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Consulta de publicações DOE com sync Neon",
+  "type": "module",
+  "scripts": {
+    "migrate": "node scripts/migrate.js",
+    "sync": "node sync.js",
+    "sync:seed": "node sync.js --seed",
+    "sync:reconcile": "node sync.js --reconcile",
+    "worker": "node worker.js",
+    "server": "node server.js",
+    "start": "node server.js",
+    "test:db": "node scripts/test-db.js",
+    "report:imediatas": "node scripts/report-imediatas-teams.js",
+    "bg:start": "powershell -ExecutionPolicy Bypass -File scripts/start-background.ps1",
+    "bg:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-background.ps1",
+    "bg:install": "powershell -ExecutionPolicy Bypass -File scripts/install-autostart.ps1",
+    "bg:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/install-autostart.ps1 -Uninstall"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "pg": "^8.22.0"
+  }
+}

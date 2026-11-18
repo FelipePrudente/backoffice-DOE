@@ -1,0 +1,2233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DOE — Consulta de Publicações</title>
+  <style>
+    :root {
+      --bg: #f4f1ff;
+      --surface: #ffffff;
+      --surface2: #ebe6ff;
+      --text: #1e1b2e;
+      --muted: #6b6580;
+      --accent: #836FFF;
+      --accent2: #6a54e0;
+      --ok: #059669;
+      --warn: #d97706;
+      --err: #dc2626;
+      --border: rgba(131, 111, 255, 0.22);
+      --pending: #b45309;
+      --published: #047857;
+      --cancelled: #b91c1c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      color-scheme: light;
+    }
+    header {
+      padding: 1.1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 { font-size: 1.2rem; font-weight: 650; }
+    header p { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+    main { padding: 1.25rem 1.5rem 2.5rem; max-width: 1400px; margin: 0 auto; }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 1rem;
+    }
+    .panel-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+    .panel-head h2 { margin-bottom: 0; }
+    .filter-field[hidden] { display: none !important; }
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(30, 27, 46, 0.45);
+      z-index: 40;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: min(520px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      padding: 1.1rem 1.2rem 1.2rem;
+    }
+    .modal h3 {
+      font-size: 1.05rem;
+      margin-bottom: 0.35rem;
+    }
+    .modal .modal-note {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 0.9rem;
+    }
+    .modal-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-bottom: 1rem;
+    }
+    .modal-list label {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.55rem;
+      color: var(--text);
+      font-size: 0.9rem;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      cursor: pointer;
+    }
+    .modal-list label.locked {
+      opacity: 0.75;
+      cursor: default;
+    }
+    .modal-list input { width: auto; accent-color: var(--accent); }
+    .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem 1rem;
+      align-items: end;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    input, select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.95rem;
+      width: 100%;
+    }
+    input:focus, select:focus {
+      outline: 2px solid rgba(131, 111, 255, 0.4);
+      border-color: var(--accent);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-top: 1rem;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+    button.secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+    .stat span { display: block; font-size: 0.75rem; color: var(--muted); }
+    .stat strong { font-size: 1.35rem; font-weight: 700; }
+    .stat.clickable {
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      user-select: none;
+    }
+    .stat.clickable:hover {
+      border-color: rgba(131, 111, 255, 0.5);
+      background: rgba(131, 111, 255, 0.08);
+    }
+    .stat.clickable:focus-visible {
+      outline: 2px solid rgba(131, 111, 255, 0.55);
+      outline-offset: 2px;
+    }
+    .stat.clickable.active {
+      border-color: var(--accent);
+      background: rgba(131, 111, 255, 0.14);
+    }
+    .stat.clickable.active span { color: var(--accent2); }
+    .status-msg {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 0.85rem;
+      min-height: 1.3em;
+    }
+    .status-msg.err { color: var(--err); }
+    .status-msg.ok { color: var(--ok); }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      background: rgba(131, 111, 255, 0.06);
+      position: sticky;
+      top: 0;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(131, 111, 255, 0.05); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge.pending { background: rgba(217, 119, 6, 0.14); color: var(--pending); }
+    .badge.published { background: rgba(5, 150, 105, 0.12); color: var(--published); }
+    .badge.cancelled { background: rgba(220, 38, 38, 0.12); color: var(--cancelled); }
+    .badge.other { background: rgba(107, 101, 128, 0.12); color: var(--muted); }
+    .badge.imediata { background: rgba(131, 111, 255, 0.14); color: var(--accent2); }
+    .badge.normal { background: rgba(5, 150, 105, 0.12); color: var(--ok); }
+    .badge.irregular { background: rgba(220, 38, 38, 0.12); color: var(--err); }
+    .title-cell { font-weight: 600; max-width: 26rem; }
+    .meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.2rem; }
+    .dates-cell { white-space: nowrap; }
+    .dates-cell .meta strong { color: var(--text); font-weight: 600; }
+    .pager {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .pager .info { color: var(--muted); font-size: 0.85rem; }
+    .pager .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .pager button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--muted);
+    }
+    .table-wrap tbody tr[data-id] {
+      cursor: pointer;
+    }
+    .table-wrap tbody tr[data-id]:hover td {
+      background: rgba(131, 111, 255, 0.07);
+    }
+    .audit-modal {
+      width: min(760px, 100%);
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .audit-modal .audit-head {
+      padding: 1rem 1.2rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .audit-modal .audit-head-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.55rem;
+    }
+    .audit-modal .audit-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .audit-modal .audit-breadcrumb svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .audit-modal .audit-close {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 1.35rem;
+      line-height: 1;
+      padding: 0.15rem 0.4rem;
+      cursor: pointer;
+    }
+    .audit-modal .audit-close:hover { color: var(--text); filter: none; }
+    .audit-modal .audit-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+      word-break: break-word;
+    }
+    .audit-modal .audit-extra {
+      margin-top: 0.65rem;
+      display: grid;
+      gap: 0.25rem;
+      font-size: 0.86rem;
+      color: var(--text);
+    }
+    .audit-modal .audit-extra .meta { margin-top: 0; }
+    .audit-modal .audit-filters {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      padding: 0.85rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .audit-modal .audit-body {
+      padding: 0.85rem 1.2rem;
+      overflow: auto;
+      flex: 1;
+      min-height: 220px;
+    }
+    .audit-timeline {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      position: relative;
+    }
+    .audit-entry {
+      display: grid;
+      grid-template-columns: 5.5rem 1.4rem 1fr;
+      gap: 0.55rem 0.7rem;
+      position: relative;
+      padding-bottom: 1.15rem;
+    }
+    .audit-entry:last-child { padding-bottom: 0.25rem; }
+    .audit-entry .audit-when {
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+    .audit-entry .audit-when strong {
+      display: block;
+      color: var(--text);
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+    .audit-entry .audit-rail {
+      position: relative;
+      display: flex;
+      justify-content: center;
+    }
+    .audit-entry .audit-rail::before {
+      content: "";
+      position: absolute;
+      top: 1.4rem;
+      bottom: -1.15rem;
+      width: 2px;
+      background: #d9d4f0;
+    }
+    .audit-entry:last-child .audit-rail::before { display: none; }
+    .audit-entry .audit-dot {
+      width: 1.35rem;
+      height: 1.35rem;
+      border-radius: 50%;
+      background: #e8f7ef;
+      color: var(--ok);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      flex-shrink: 0;
+    }
+    .audit-entry .audit-dot svg { width: 14px; height: 14px; }
+    .audit-entry .audit-content .audit-type {
+      font-weight: 700;
+      color: var(--ok);
+      margin-bottom: 0.35rem;
+      font-size: 0.95rem;
+    }
+    .audit-entry .audit-ops {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .audit-entry .audit-ops li {
+      color: var(--text);
+      font-size: 0.88rem;
+      position: relative;
+      padding-left: 0.95rem;
+    }
+    .audit-entry .audit-ops li::before {
+      content: "›";
+      position: absolute;
+      left: 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .audit-entry .audit-author {
+      margin-top: 0.45rem;
+      font-size: 0.86rem;
+      color: var(--text);
+    }
+    .audit-modal .audit-foot {
+      padding: 0.85rem 1.2rem 1.1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: center;
+    }
+    .audit-modal .audit-foot button {
+      min-width: 12rem;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .audit-modal .audit-foot button:hover { background: rgba(131, 111, 255, 0.08); filter: none; }
+    .audit-empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 2rem 1rem;
+    }
+    @media (max-width: 700px) {
+      .audit-modal .audit-filters { grid-template-columns: 1fr; }
+      .audit-entry { grid-template-columns: 4.2rem 1.2rem 1fr; }
+    }
+    .empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--muted);
+    }
+    .progress {
+      height: 6px;
+      background: var(--bg);
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 0.5rem 0 0;
+      display: none;
+    }
+    .progress.show { display: block; }
+    .progress > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+    details.hint {
+      margin-top: 0.75rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    details.hint summary { cursor: pointer; color: var(--accent); }
+    code {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.78rem;
+      background: rgba(131, 111, 255, 0.1);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
+    @media (max-width: 700px) {
+      main, header { padding-left: 1rem; padding-right: 1rem; }
+      .title-cell { max-width: 16rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Consulta de Publicações — DOE</h1>
+    <p>Alternativa ao Backoffice. Dados no Neon; sync e filtros via API local.</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Filtros</h2>
+        <button type="button" class="ghost" id="btnCustomizeFilters">Customizar filtros</button>
+      </div>
+      <div class="grid" id="filtersGrid">
+        <label class="filter-field" data-filter-id="q" style="grid-column: 1 / -1">
+          Buscar
+          <input type="search" id="q" placeholder="Título, seção, publicante, CPF, autenticação, identificação, caderno/seção…" autocomplete="off" />
+        </label>
+        <label class="filter-field" data-filter-id="scheduleDate">
+          Data Prevista da Publicação
+          <input type="date" id="scheduleDate" />
+        </label>
+        <label class="filter-field" data-filter-id="modality">
+          Tipo de Publicação
+          <select id="modality">
+            <option value="all" selected>Todas</option>
+            <option value="normal">Normais</option>
+            <option value="immediate">Imediatas</option>
+            <option value="irregular">Irregulares</option>
+          </select>
+        </label>
+        <label class="filter-field" data-filter-id="status">
+          Status
+          <select id="status">
+            <option value="" selected>Todos (base do dia)</option>
+            <option value="3">Aguardando Publicação</option>
+            <option value="4">Publicada</option>
+            <option value="5">Cancelada</option>
+            <option value="8">Aguardando pagamento</option>
+            <option value="9">Aguardando revisão</option>
+            <option value="3,4,5,8,9">Padrão Backoffice (vários)</option>
+          </select>
+        </label>
+        <label class="filter-field" data-filter-id="journal">
+          Caderno
+          <select id="journal">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label class="filter-field" data-filter-id="title">
+          Título contém
+          <input type="search" id="title" placeholder="Ex.: Portaria, Pregão…" />
+        </label>
+        <label class="filter-field" data-filter-id="sectionCode">
+          Código da seção
+          <input type="text" id="sectionCode" placeholder="Ex.: ZKAI" />
+        </label>
+        <label class="filter-field" data-filter-id="publisherName">
+          Nome do Publicante
+          <input type="text" id="publisher" placeholder="Nome do publicante" />
+        </label>
+        <label class="filter-field" data-filter-id="publisherDocument">
+          CPF do Publicante
+          <input type="text" id="publisherDocument" placeholder="Somente números ou com máscara" inputmode="numeric" />
+        </label>
+        <label class="filter-field" data-filter-id="authCode">
+          Código de Autenticação
+          <input type="text" id="authCode" placeholder="Ex.: 2026.07.21.3.1.467.1.33.1993332" autocomplete="off" />
+        </label>
+        <label class="filter-field" data-filter-id="publicationId">
+          Código de identificação
+          <input type="text" id="publicationId" placeholder="Ex.: dfc80140-427c-430d-fed4-08dee341fe37" autocomplete="off" />
+        </label>
+        <label class="filter-field" data-filter-id="createdAt">
+          Data de criação
+          <input type="date" id="createdAt" />
+        </label>
+        <label class="filter-field" data-filter-id="sortBy">
+          Ordenar por
+          <select id="sortBy">
+            <option value="createdAt" selected>Data de entrada</option>
+            <option value="publicationDate">Data Prevista da Publicação</option>
+          </select>
+        </label>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnSearch">Pesquisar</button>
+        <button type="button" class="secondary" id="btnFullRefresh">Atualizar</button>
+        <button type="button" class="ghost" id="btnExport" disabled>Exportar CSV</button>
+        <button type="button" class="ghost" id="btnClear">Limpar filtros</button>
+      </div>
+      <div class="progress" id="progress"><i id="progressBar"></i></div>
+      <p class="status-msg" id="cacheMsg" style="margin-top:0.65rem;margin-bottom:0"></p>
+      <details class="hint">
+        <summary>Cache e performance</summary>
+        <ul style="margin-top:0.5rem; padding-left:1.1rem; line-height:1.55">
+          <li>Os dados ficam no <strong>Neon (Postgres)</strong>. Use <code>npm run bg:install</code> para API + worker sem terminal (início no logon).</li>
+          <li>O <strong>worker</strong> faz a carga inicial (5 dias), complementa a cada <strong>60 segundos</strong> e reconcilia o dia a cada <strong>3 minutos</strong>. Matérias com <code>created_at</code> com mais de <strong>10 dias</strong> são excluídas automaticamente.</li>
+          <li><strong>Pesquisar</strong> / <strong>Atualizar</strong> consultam o Neon (rápido). O worker mantém a base alinhada com a API DOE.</li>
+          <li><code>isImmediate=true</code> = Imediata · <code>createdAt</code> = entrada · <code>schedule</code> = Data Prevista.</li>
+          <li><strong>Buscar</strong> procura em título, seção, publicante, CPF, autenticação, identificação e caderno/seção. Os filtros específicos continuam disponíveis em <em>Customizar filtros</em>.</li>
+        </ul>
+      </details>
+    </section>
+
+    <div class="stats" id="stats" hidden>
+      <div class="stat"><span>Informado pela API</span><strong id="statApiReported">0</strong></div>
+      <div class="stat"><span>No cache / baixados</span><strong id="statTotal">0</strong></div>
+      <div class="stat"><span>Novos nesta busca</span><strong id="statNew">0</strong></div>
+      <div class="stat"><span>Exibidos (filtros)</span><strong id="statShown">0</strong></div>
+      <div class="stat clickable" id="statCardNormal" data-modality="normal" role="button" tabindex="0" title="Filtrar só Normais">
+        <span>Normais</span><strong id="statNormal">0</strong>
+      </div>
+      <div class="stat clickable" id="statCardImmediate" data-modality="immediate" role="button" tabindex="0" title="Filtrar só Imediatas">
+        <span>Imediatas</span><strong id="statImmediate">0</strong>
+      </div>
+      <div class="stat clickable" id="statCardIrregular" data-modality="irregular" role="button" tabindex="0" title="Filtrar só Irregulares">
+        <span>Irregulares</span><strong id="statIrregular">0</strong>
+      </div>
+    </div>
+
+    <p class="status-msg" id="statusMsg">Carregando base local…</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>Tipo de Publicação</th>
+            <th>Status</th>
+            <th>Datas</th>
+            <th>Caderno / Seção</th>
+            <th>Publicante</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6" class="empty">Nenhuma consulta ainda.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager" id="pager" hidden>
+      <div class="info" id="pagerInfo"></div>
+      <div class="controls">
+        <button type="button" class="ghost" id="btnPageFirst" title="Primeira página">«</button>
+        <button type="button" class="ghost" id="btnPagePrev" title="Página anterior">Anterior</button>
+        <button type="button" class="ghost" id="btnPageNext" title="Próxima página">Próxima</button>
+        <button type="button" class="ghost" id="btnPageLast" title="Última página">»</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" id="filtersModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="filtersModalTitle">
+      <h3 id="filtersModalTitle">Customizar filtros</h3>
+      <p class="modal-note">
+        Escolha quais campos aparecem na seção de filtros.
+        A base fica no Neon. Filtros consultam a API local.
+        Preferência de layout salva neste navegador.
+      </p>
+      <div class="modal-list" id="filtersModalList"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="btnFiltersReset">Restaurar padrão</button>
+        <button type="button" class="ghost" id="btnFiltersCancel">Cancelar</button>
+        <button type="button" id="btnFiltersSave">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="auditModal" aria-hidden="true">
+    <div class="modal audit-modal" role="dialog" aria-labelledby="auditModalTitle">
+      <div class="audit-head">
+        <div class="audit-head-top">
+          <div class="audit-breadcrumb">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 8v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+            <span>Auditoria &gt; Publicação</span>
+          </div>
+          <button type="button" class="audit-close" id="btnAuditClose" aria-label="Fechar">×</button>
+        </div>
+        <h3 class="audit-title" id="auditModalTitle">—</h3>
+        <div class="audit-extra" id="auditExtra" hidden></div>
+      </div>
+      <div class="audit-filters">
+        <label>
+          Data Início
+          <input type="date" id="auditStartDate" />
+        </label>
+        <label>
+          Data Fim
+          <input type="date" id="auditEndDate" />
+        </label>
+        <label>
+          Ordenar por
+          <select id="auditSort">
+            <option value="desc" selected>Data Decrescente</option>
+            <option value="asc">Data Crescente</option>
+          </select>
+        </label>
+      </div>
+      <div class="audit-body" id="auditBody">
+        <div class="audit-empty">Selecione uma matéria para ver a auditoria.</div>
+      </div>
+      <div class="audit-foot">
+        <button type="button" class="ghost" id="btnAuditBack">Voltar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  var API = "https://do-api-backoffice-taxonomy.doe.sp.gov.br/v1";
+  // No Render (mesmo domínio): URL relativa. Em file:// ou localhost: API local.
+  var LOCAL_API = (function () {
+    if (typeof window !== "undefined" && window.DOE_API_BASE) {
+      return String(window.DOE_API_BASE).replace(/\/$/, "");
+    }
+    var host = location.hostname;
+    var isLocal =
+      location.protocol === "file:" ||
+      host === "localhost" ||
+      host === "127.0.0.1";
+    return isLocal ? "http://localhost:3847" : "";
+  })();
+  var SYNC_INTERVAL_MS = 30 * 60 * 1000;
+  var PAGE_SIZE = 30;
+  var state = {
+    allItems: [],
+    lastPageItems: [],
+    syncing: false,
+    syncTimer: null,
+    lastSyncAt: null,
+    useNeon: true,
+    page: 1,
+    total: 0,
+    totalPages: 1,
+    pageSize: PAGE_SIZE,
+    auditPublicationId: null
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function tomorrowISO() {
+    var d = new Date();
+    d.setDate(d.getDate() + 1);
+    return toISODate(d);
+  }
+
+  function todayISO() {
+    return toISODate(new Date());
+  }
+
+  function toISODate(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function formatDateBR(iso) {
+    if (!iso) return "—";
+    var s = String(iso).slice(0, 10);
+    var p = s.split("-");
+    if (p.length !== 3) return s;
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+
+  function formatDateTimeBR(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return formatDateBR(iso);
+    return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function maskDoc(doc) {
+    if (!doc) return "";
+    var s = String(doc).replace(/\D/g, "");
+    if (s.length < 5) return "***";
+    return "***" + s.slice(-4);
+  }
+
+  function dayOf(iso) {
+    return iso ? String(iso).slice(0, 10) : "";
+  }
+
+  function scheduleDay(item) {
+    return dayOf(item && item.schedule);
+  }
+
+  function createdDay(item) {
+    return dayOf(item && item.createdAt);
+  }
+
+  function openCacheDb() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(CACHE_DB, 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(CACHE_STORE)) {
+          db.createObjectStore(CACHE_STORE, { keyPath: "key" });
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || Error("IndexedDB indisponível")); };
+    });
+  }
+
+  function cacheGet(key) {
+    return openCacheDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(CACHE_STORE, "readonly");
+        var req = tx.objectStore(CACHE_STORE).get(key);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error); };
+      });
+    }).catch(function () { return null; });
+  }
+
+  function cachePut(record) {
+    return openCacheDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(CACHE_STORE, "readwrite");
+        tx.objectStore(CACHE_STORE).put(record);
+        tx.oncomplete = function () { resolve(record); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    }).catch(function () { return null; });
+  }
+
+  function cacheClearAll() {
+    return openCacheDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(CACHE_STORE, "readwrite");
+        tx.objectStore(CACHE_STORE).clear();
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    });
+  }
+
+  function maxCreatedAt(items) {
+    var max = "";
+    (items || []).forEach(function (it) {
+      if (it && it.createdAt && String(it.createdAt) > max) max = String(it.createdAt);
+    });
+    return max;
+  }
+
+  function mergeById(oldItems, newItems) {
+    var map = {};
+    (oldItems || []).forEach(function (it) {
+      if (it && it.id) map[it.id] = it;
+    });
+    (newItems || []).forEach(function (it) {
+      if (it && it.id) map[it.id] = it;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; });
+  }
+
+  function classifyModality(item) {
+    var sameDay = createdDay(item) && scheduleDay(item) && createdDay(item) === scheduleDay(item);
+    var flag = !!item.isImmediate;
+
+    // Fonte da verdade da API: isImmediate=true = Imediata
+    if (flag) {
+      return { key: "immediate", label: "Imediata", cls: "imediata", ok: true };
+    }
+
+    if (!sameDay) {
+      return { key: "normal", label: "Normal", cls: "normal", ok: true };
+    }
+
+    return {
+      key: "irregular",
+      label: "Irregular",
+      cls: "irregular",
+      ok: false,
+      reason: "mesmo dia createdAt/schedule, mas isImmediate=false"
+    };
+  }
+
+  function modalityBadge(item) {
+    var m = classifyModality(item);
+    var tip = m.reason ? ' title="' + escapeHtml(m.reason) + '"' : "";
+    return '<span class="badge ' + m.cls + '"' + tip + ">" + escapeHtml(m.label) + "</span>";
+  }
+
+  var FILTER_PREFS_KEY = "doe-filter-visibility-v3";
+  var FILTER_CATALOG = [
+    { id: "q", label: "Buscar", required: false },
+    { id: "scheduleDate", label: "Data Prevista da Publicação", required: false },
+    { id: "createdAt", label: "Data de criação", required: false },
+    { id: "modality", label: "Tipo de Publicação", required: false },
+    { id: "status", label: "Status", required: false },
+    { id: "journal", label: "Caderno", required: false },
+    { id: "title", label: "Título contém", required: false },
+    { id: "sectionCode", label: "Código da seção", required: false },
+    { id: "publisherName", label: "Nome do Publicante", required: false },
+    { id: "publisherDocument", label: "CPF do Publicante", required: false },
+    { id: "authCode", label: "Código de Autenticação", required: false },
+    { id: "publicationId", label: "Código de identificação", required: false },
+    { id: "sortBy", label: "Ordenar por", required: false }
+  ];
+  var DEFAULT_VISIBLE_FILTERS = [
+    "q", "scheduleDate", "createdAt", "modality", "status", "journal", "sortBy"
+  ];
+
+  function loadFilterVisibility() {
+    try {
+      var raw = localStorage.getItem(FILTER_PREFS_KEY);
+      if (!raw) return DEFAULT_VISIBLE_FILTERS.slice();
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || !parsed.length) return DEFAULT_VISIBLE_FILTERS.slice();
+      if (parsed.indexOf("scheduleDate") === -1 && parsed.indexOf("createdAt") === -1) {
+        parsed = ["scheduleDate"].concat(parsed);
+      }
+      return parsed;
+    } catch (e) {
+      return DEFAULT_VISIBLE_FILTERS.slice();
+    }
+  }
+
+  function saveFilterVisibility(ids) {
+    localStorage.setItem(FILTER_PREFS_KEY, JSON.stringify(ids));
+  }
+
+  function applyFilterVisibility(visibleIds) {
+    var set = {};
+    (visibleIds || []).forEach(function (id) { set[id] = true; });
+    document.querySelectorAll(".filter-field").forEach(function (el) {
+      var id = el.getAttribute("data-filter-id");
+      if (!id) return;
+      if (set[id]) el.removeAttribute("hidden");
+      else el.setAttribute("hidden", "");
+    });
+  }
+
+  function openFiltersModal() {
+    var visible = loadFilterVisibility();
+    var list = $("filtersModalList");
+    list.innerHTML = FILTER_CATALOG.map(function (f) {
+      var checked = visible.indexOf(f.id) !== -1;
+      return (
+        "<label>" +
+          '<input type="checkbox" data-filter-opt="' + f.id + '"' +
+          (checked ? " checked" : "") + " />" +
+          escapeHtml(f.label) +
+        "</label>"
+      );
+    }).join("");
+    $("filtersModal").classList.add("open");
+    $("filtersModal").setAttribute("aria-hidden", "false");
+  }
+
+  function closeFiltersModal() {
+    $("filtersModal").classList.remove("open");
+    $("filtersModal").setAttribute("aria-hidden", "true");
+  }
+
+  function digitsOnly(s) {
+    return String(s || "").replace(/\D/g, "");
+  }
+
+  function getSearchDates() {
+    return {
+      scheduleDay: ($("scheduleDate").value || "").trim(),
+      createdAtDay: ($("createdAt").value || "").trim()
+    };
+  }
+
+  function baseCacheKey() {
+    return BASE_CACHE_KEY;
+  }
+
+  function baseWindowStart(day) {
+    return addDaysISO(day || todayISO(), -BASE_LOOKBACK_DAYS);
+  }
+
+  function inSeedWindow(it, day) {
+    var c = createdDay(it);
+    if (!c) return false;
+    var start = baseWindowStart(day);
+    var end = day || todayISO();
+    return c >= start && c <= end;
+  }
+
+  function isUsableBaseCache(cached) {
+    return !!(
+      cached &&
+      cached.items &&
+      cached.items.length &&
+      cached.version >= CACHE_VERSION &&
+      cached.lookbackDays === BASE_LOOKBACK_DAYS
+    );
+  }
+
+  function itemPublisherDoc(it) {
+    if (!it) return "";
+    return digitsOnly(
+      it.publisherDocument ||
+      it.publisherDoc ||
+      (it.publisher && (it.publisher.document || it.publisher.documentNumber)) ||
+      ""
+    );
+  }
+
+  function matchesPublisherDoc(it, needle) {
+    if (!needle) return true;
+    var doc = itemPublisherDoc(it);
+    if (!doc) return false;
+    return doc.indexOf(needle) !== -1 || needle.indexOf(doc) !== -1;
+  }
+
+  function statusFilterSet() {
+    var statusVal = ($("status").value || "").trim();
+    var set = {};
+    if (!statusVal) return set;
+    statusVal.split(",").forEach(function (s) {
+      var v = s.trim();
+      if (v) set[v] = true;
+    });
+    return set;
+  }
+
+  function applyClientFilters(items, opts) {
+    opts = opts || {};
+    var skipModality = !!opts.skipModality;
+    var dates = getSearchDates();
+    var modality = $("modality").value || "all";
+    var freeText = ($("q").value || "").trim().toLowerCase();
+    var freeDigits = digitsOnly($("q").value);
+    var title = ($("title").value || "").trim().toLowerCase();
+    var sectionCode = ($("sectionCode").value || "").trim().toLowerCase();
+    var publisher = ($("publisher").value || "").trim().toLowerCase();
+    var publisherDoc = digitsOnly($("publisherDocument").value);
+    var authCode = ($("authCode").value || "").trim().toLowerCase();
+    var publicationId = ($("publicationId").value || "").trim().toLowerCase();
+    var journal = $("journal").value || "";
+    var statusSet = statusFilterSet();
+    var hasStatusFilter = Object.keys(statusSet).length > 0;
+
+    var filtered = (items || []).filter(function (it) {
+      // Datas e CPF/texto: sempre aplicados quando preenchidos
+      if (dates.scheduleDay && scheduleDay(it) !== dates.scheduleDay) return false;
+      if (dates.createdAtDay && createdDay(it) !== dates.createdAtDay) return false;
+      if (hasStatusFilter) {
+        var sv = it.status && it.status.value;
+        if (!statusSet[String(sv)]) return false;
+      }
+      if (!skipModality && modality !== "all" && classifyModality(it).key !== modality) return false;
+      if (journal && it.journalId !== journal) return false;
+      if (freeText) {
+        var blob = [
+          it.title,
+          it.sectionCode,
+          it.publisherName,
+          it.authCode,
+          it.id,
+          it.sectionHierarchy
+        ].map(function (v) { return String(v || "").toLowerCase(); }).join("\n");
+        var hitText = blob.indexOf(freeText) !== -1;
+        var hitDoc = freeDigits && matchesPublisherDoc(it, freeDigits);
+        if (!hitText && !hitDoc) return false;
+      }
+      if (title && String(it.title || "").toLowerCase().indexOf(title) === -1) return false;
+      if (sectionCode && String(it.sectionCode || "").toLowerCase().indexOf(sectionCode) === -1) return false;
+      if (publisher && String(it.publisherName || "").toLowerCase().indexOf(publisher) === -1) return false;
+      if (publisherDoc && !matchesPublisherDoc(it, publisherDoc)) return false;
+      if (authCode && String(it.authCode || "").toLowerCase().indexOf(authCode) === -1) return false;
+      if (publicationId && String(it.id || "").toLowerCase().indexOf(publicationId) === -1) return false;
+      return true;
+    });
+
+    return sortItems(filtered);
+  }
+
+  function sortItems(items) {
+    var sortBy = $("sortBy").value || "createdAt";
+    var arr = (items || []).slice();
+    arr.sort(function (a, b) {
+      var av = sortBy === "publicationDate" ? String(a.schedule || "") : String(a.createdAt || "");
+      var bv = sortBy === "publicationDate" ? String(b.schedule || "") : String(b.createdAt || "");
+      if (av < bv) return 1;
+      if (av > bv) return -1;
+      return 0;
+    });
+    return arr;
+  }
+
+  function describeActiveFilters() {
+    var dates = getSearchDates();
+    var parts = [];
+    if (dates.scheduleDay) parts.push("Prevista " + formatDateBR(dates.scheduleDay));
+    if (dates.createdAtDay) parts.push("Criação " + formatDateBR(dates.createdAtDay));
+    if (($("status").value || "").trim()) parts.push("status");
+    if (($("modality").value || "all") !== "all") parts.push("tipo");
+    if ($("journal").value) parts.push("caderno");
+    if (($("q").value || "").trim()) parts.push("busca");
+    if (($("title").value || "").trim()) parts.push("título");
+    if (($("sectionCode").value || "").trim()) parts.push("seção");
+    if (($("publisher").value || "").trim()) parts.push("publicante");
+    if (digitsOnly($("publisherDocument").value)) parts.push("CPF");
+    if (($("authCode").value || "").trim()) parts.push("autenticação");
+    if (($("publicationId").value || "").trim()) parts.push("identificação");
+    return parts.length ? parts.join(" · ") : "sem filtros extras";
+  }
+
+  function statusBadge(item) {
+    var v = item.status && item.status.value;
+    var caption = (item.status && (item.status.caption || item.status.name)) || "—";
+    var cls = "other";
+    if (v === 3) { cls = "pending"; caption = "Aguardando Publicação"; }
+    else if (v === 4) { cls = "published"; caption = "Publicada"; }
+    else if (v === 5) { cls = "cancelled"; caption = "Cancelada"; }
+    else if (v === 8) { cls = "pending"; caption = "Aguardando pagamento"; }
+    else if (v === 9) { cls = "pending"; caption = "Aguardando revisão"; }
+    return '<span class="badge ' + cls + '">' + escapeHtml(caption) + "</span>";
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function setMsg(text, kind) {
+    var el = $("statusMsg");
+    el.textContent = text || "";
+    el.className = "status-msg" + (kind ? " " + kind : "");
+  }
+
+  function setCacheMsg(text) {
+    $("cacheMsg").textContent = text || "";
+  }
+
+  function setBusy(busy) {
+    ["btnSearch", "btnFullRefresh", "btnExport", "btnClear", "btnCustomizeFilters",
+      "btnPageFirst", "btnPagePrev", "btnPageNext", "btnPageLast"].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      if (busy) el.disabled = true;
+    });
+    if (!busy) {
+      $("btnSearch").disabled = false;
+      $("btnFullRefresh").disabled = false;
+      $("btnClear").disabled = false;
+      $("btnCustomizeFilters").disabled = false;
+      $("btnExport").disabled = !(state.lastPageItems && state.lastPageItems.length);
+      renderPager();
+    }
+  }
+
+  function setProgress(show, pct) {
+    var wrap = $("progress");
+    var bar = $("progressBar");
+    if (show) wrap.classList.add("show");
+    else wrap.classList.remove("show");
+    bar.style.width = Math.max(0, Math.min(100, pct || 0)) + "%";
+  }
+
+  function addDaysISO(isoDay, delta) {
+    var p = String(isoDay).split("-");
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    d.setDate(d.getDate() + delta);
+    return toISODate(d);
+  }
+
+  function buildQuery(pageNumber, pageSize, options) {
+    options = options || {};
+    var params = new URLSearchParams();
+    params.set("pageNumber", String(pageNumber));
+    params.set("PageSize", String(pageSize));
+
+    var sortBy = options.sortBy || "createdAt";
+    if (sortBy !== "createdAt" && sortBy !== "publicationDate") sortBy = "createdAt";
+    params.set("SortByField", sortBy);
+    params.set("SortOrder", options.sortOrder || "desc");
+
+    var statusVal = options.status != null ? options.status : $("status").value;
+    String(statusVal).split(",").forEach(function (s, i) {
+      var v = s.trim();
+      if (v) params.append("Status[" + i + "]", v);
+    });
+
+    if (options.initialDate) params.set("InitialDate", options.initialDate);
+    if (options.finalDate) params.set("FinalDate", options.finalDate);
+
+    return params;
+  }
+
+  function fetchPage(pageNumber, pageSize, options) {
+    var url = API + "/publication/filter?" + buildQuery(pageNumber, pageSize, options).toString();
+    var attempts = 0;
+    var maxAttempts = 4;
+
+    function isRetriable(err) {
+      var msg = String((err && err.message) || err || "");
+      if (err && err.retriable) return true;
+      return /HTTP 400|HTTP 408|HTTP 429|HTTP 5\d\d|Timeout|canceled|Failed to fetch|network|AbortError/i.test(msg);
+    }
+
+    function attempt() {
+      attempts += 1;
+      return fetch(url, {
+        headers: { accept: "application/json" }
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          var data = null;
+          try { data = text ? JSON.parse(text) : null; } catch (e) { /* ignore */ }
+          if (!res.ok) {
+            var detail = (data && (data.detail || data.title)) || text || "";
+            detail = String(detail).slice(0, 220);
+            var err = new Error("HTTP " + res.status + (detail ? " — " + detail : ""));
+            err.status = res.status;
+            err.retriable =
+              res.status === 400 ||
+              res.status === 408 ||
+              res.status === 429 ||
+              res.status >= 500 ||
+              /Timeout|canceled/i.test(detail);
+            throw err;
+          }
+          return (data && (data.pagedResult || data)) || {};
+        });
+      }).catch(function (err) {
+        if (attempts < maxAttempts && isRetriable(err)) {
+          var wait = 1500 * attempts;
+          setMsg(
+            "Timeout/falha na página " + pageNumber +
+            " (tentativa " + attempts + "/" + maxAttempts + "). Aguardando " +
+            (wait / 1000) + "s…"
+          );
+          return new Promise(function (resolve) {
+            setTimeout(function () { resolve(attempt()); }, wait);
+          });
+        }
+        throw err;
+      });
+    }
+
+    return attempt();
+  }
+
+  function fetchAllPages(pageSize, options, onProgress) {
+    var collected = [];
+    var seen = {};
+    var page = 1;
+    var safetyMax = 500;
+
+    function addItems(items) {
+      (items || []).forEach(function (it) {
+        if (!it || !it.id || seen[it.id]) return;
+        seen[it.id] = true;
+        collected.push(it);
+      });
+    }
+
+    function next(prHint) {
+      if (page > safetyMax) return Promise.resolve(collected);
+
+      return fetchPage(page, pageSize, options).then(function (pr) {
+        var items = pr.items || [];
+        addItems(items);
+
+        var reportedTotal = pr.totalItems != null ? pr.totalItems : (prHint && prHint.totalItems);
+        var reportedPages = Math.max(1, pr.totalPages || 1);
+        if (onProgress) onProgress(page, reportedPages, collected, pr);
+
+        var fullPage = items.length >= pageSize;
+        var hasMore =
+          pr.hasNextPage === true ||
+          (pr.hasNextPage !== false && fullPage) ||
+          (page < reportedPages);
+
+        if (hasMore && items.length > 0) {
+          page += 1;
+          return new Promise(function (resolve) {
+            setTimeout(function () { resolve(next(pr)); }, 250);
+          });
+        }
+
+        if (reportedTotal != null && collected.length < reportedTotal && items.length > 0 && page < safetyMax) {
+          page += 1;
+          return new Promise(function (resolve) {
+            setTimeout(function () { resolve(next(pr)); }, 250);
+          });
+        }
+
+        return collected;
+      });
+    }
+
+    return next(null);
+  }
+
+  function renderRows(items) {
+    var tbody = $("tbody");
+    state.lastPageItems = items || [];
+    $("btnExport").disabled = !items.length;
+
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma publicação encontrada com esses filtros.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(function (it) {
+      var hierarchy = it.sectionHierarchy || it.sectionName || "—";
+      var journal = it.journalName || "—";
+      var m = classifyModality(it);
+      var dimsParts = [];
+      if (it.height) dimsParts.push(it.height);
+      if (it.width) dimsParts.push(it.width);
+      var payParts = [];
+      if (it.paymentTypeName) payParts.push(it.paymentTypeName);
+      if (it.discountValue) payParts.push("Desconto: " + it.discountValue);
+      return (
+        '<tr data-id="' + escapeHtml(it.id) + '" title="Clique para ver a auditoria">' +
+          '<td class="title-cell">' +
+            escapeHtml(it.title || "(sem título)") +
+            '<div class="meta">' + escapeHtml(it.publicationTypeName || "") +
+            (it.authCode ? " · " + escapeHtml(it.authCode) : "") +
+            "</div>" +
+            (dimsParts.length
+              ? '<div class="meta"><strong>Dimensões</strong>: ' + escapeHtml(dimsParts.join(" · ")) + "</div>"
+              : "") +
+            (payParts.length
+              ? '<div class="meta"><strong>Pagamento</strong>: ' + escapeHtml(payParts.join(" · ")) + "</div>"
+              : "") +
+          "</td>" +
+          "<td>" + modalityBadge(it) +
+            (m.reason ? '<div class="meta">' + escapeHtml(m.reason) + "</div>" : "") +
+          "</td>" +
+          "<td>" + statusBadge(it) + "</td>" +
+          '<td class="dates-cell">' +
+            '<div><strong>Data Prevista da Publicação</strong>: ' + escapeHtml(formatDateBR(it.schedule)) + "</div>" +
+            '<div class="meta"><strong>Entrada</strong> (createdAt): ' + escapeHtml(formatDateTimeBR(it.createdAt)) + "</div>" +
+            (it.pendingPublicationDate
+              ? '<div class="meta">Pendência: ' + escapeHtml(formatDateTimeBR(it.pendingPublicationDate)) + "</div>"
+              : "") +
+          "</td>" +
+          "<td>" +
+            escapeHtml(journal) +
+            '<div class="meta">' + escapeHtml(hierarchy) + "</div>" +
+            (it.sectionCode ? '<div class="meta">Cód.: ' + escapeHtml(it.sectionCode) + "</div>" : "") +
+          "</td>" +
+          "<td>" +
+            escapeHtml(it.publisherName || "—") +
+            '<div class="meta">' + escapeHtml(maskDoc(it.publisherDocument)) + "</div>" +
+          "</td>" +
+        "</tr>"
+      );
+    }).join("");
+  }
+
+  function syncModalityStatActive() {
+    var current = $("modality").value || "all";
+    ["statCardNormal", "statCardImmediate", "statCardIrregular"].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      var key = el.getAttribute("data-modality");
+      if (key && key === current) el.classList.add("active");
+      else el.classList.remove("active");
+    });
+  }
+
+  function updateStats(items, baixados, apiReported, novos) {
+    $("stats").hidden = false;
+    var list = items || [];
+    // Contagens de tipo: demais filtros ativos, sem o filtro de modalidade
+    var forModality = applyClientFilters(state.allItems, { skipModality: true });
+    var n = 0, imm = 0, irr = 0;
+    forModality.forEach(function (it) {
+      var k = classifyModality(it).key;
+      if (k === "normal") n += 1;
+      else if (k === "immediate") imm += 1;
+      else irr += 1;
+    });
+    $("statApiReported").textContent = String(apiReported != null ? apiReported : "—");
+    $("statTotal").textContent = String(baixados != null ? baixados : state.allItems.length);
+    $("statNew").textContent = String(novos != null ? novos : 0);
+    $("statShown").textContent = String(list.length);
+    $("statNormal").textContent = String(n);
+    $("statImmediate").textContent = String(imm);
+    $("statIrregular").textContent = String(irr);
+    syncModalityStatActive();
+  }
+
+  function finishView(editionItems, meta) {
+    meta = meta || {};
+    state.allItems = editionItems || [];
+    var filtered = applyClientFilters(state.allItems);
+    renderRows(filtered);
+    updateStats(filtered, state.allItems.length, meta.apiReported, meta.novos);
+    var secs = meta.secs != null ? meta.secs : "?";
+    var n = 0, imm = 0, irr = 0;
+    filtered.forEach(function (it) {
+      var k = classifyModality(it).key;
+      if (k === "normal") n += 1;
+      else if (k === "immediate") imm += 1;
+      else irr += 1;
+    });
+    var filterNote = describeActiveFilters();
+    setMsg(
+      "Pronto em " + secs + "s (" + (meta.mode || "cache") + "): " +
+      filtered.length + " exibidos (" + filterNote + ") — " +
+      n + " normais, " + imm + " imediatas, " + irr + " irregulares. " +
+      "Base do dia: " + state.allItems.length +
+      (meta.novos != null ? " · novos da API: " + meta.novos : "") +
+      (filterNote === "sem filtros extras" ? " · defina os filtros para refinar" : "") + ".",
+      "ok"
+    );
+  }
+
+  function updateCacheBanner(record, extra) {
+    if (!record) {
+      setCacheMsg(extra || "Sem base do dia no cache.");
+      return;
+    }
+    setCacheMsg(
+      "Base local" +
+      (record.seededAt ? " (semente " + formatDateBR(dayOf(record.seededAt)) + ")" : "") +
+      ": " + (record.items || []).length + " itens · atualizado em " +
+      formatDateTimeBR(record.updatedAt) +
+      (record.maxCreatedAt ? " · último createdAt " + formatDateTimeBR(record.maxCreatedAt) : "") +
+      (extra ? " · " + extra : "")
+    );
+  }
+
+  /**
+   * Cache local persistente.
+   * - forceFull/seed: carga única dos últimos 5 dias (só se não houver base)
+   * - incremental: complementa a partir do último createdAt (timer, Atualizar, virada do dia)
+   * @param {{forceFull?: boolean, incremental?: boolean, silent?: boolean}} options
+   */
+  function syncDailyBase(options) {
+    options = options || {};
+    var forceFull = !!options.forceFull;
+    var wantIncremental = !!options.incremental;
+    var silent = !!options.silent;
+
+    if (state.syncing) {
+      if (!silent) setMsg("Sincronização já em andamento…");
+      return Promise.resolve(state.allItems);
+    }
+
+    var day = todayISO();
+    var key = baseCacheKey();
+    state.syncing = true;
+    state.lastCacheKey = key;
+    var t0 = Date.now();
+    var pageSize = 25;
+
+    if (!silent) {
+      setBusy(true);
+      setProgress(true, 2);
+    }
+
+    return cacheGet(key).then(function (cached) {
+      var hasCache = isUsableBaseCache(cached);
+
+      // Sem base e pediu incremental → faz a semente única
+      if (!hasCache && wantIncremental && !forceFull) {
+        forceFull = true;
+        wantIncremental = false;
+      }
+
+      // Reabertura: só lê o cache, sem API
+      if (hasCache && !forceFull && !wantIncremental) {
+        state.allItems = cached.items;
+        state.baseDay = day;
+        state.lastSyncAt = cached.updatedAt;
+        updateCacheBanner(cached, "somente cache");
+        finishView(cached.items, {
+          secs: ((Date.now() - t0) / 1000).toFixed(2),
+          mode: "cache local",
+          novos: 0
+        });
+        return cached.items;
+      }
+
+      // Já existe base: nunca refaz os 5 dias — só complementa
+      if (hasCache && forceFull) {
+        forceFull = false;
+        wantIncremental = true;
+      }
+
+      if (hasCache) {
+        state.allItems = cached.items;
+        state.baseDay = day;
+        updateCacheBanner(cached, silent ? "sync automático…" : "complementando…");
+        if (!silent) {
+          var preview = applyClientFilters(cached.items);
+          renderRows(preview);
+          updateStats(preview, cached.items.length, null, 0);
+        }
+      } else {
+        updateCacheBanner(
+          null,
+          "Carga inicial (única): createdAt de " + formatDateBR(baseWindowStart(day)) +
+          " a " + formatDateBR(day) + "…"
+        );
+        $("tbody").innerHTML =
+          '<tr><td colspan="6" class="empty">Recebendo matérias… elas aparecerão aqui conforme o carregamento.</td></tr>';
+      }
+
+      var useIncremental = !forceFull && wantIncremental && hasCache && cached.maxCreatedAt;
+      var queryOpts = {
+        status: ALL_STATUSES,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+        initialDate: useIncremental ? (dayOf(cached.maxCreatedAt) || day) : baseWindowStart(day),
+        finalDate: day
+      };
+
+      if (!silent) {
+        setMsg(
+          useIncremental
+            ? ("Complemento: entradas a partir de " + formatDateTimeBR(cached.maxCreatedAt) + "…")
+            : ("Carga inicial (única): createdAt de " + formatDateBR(queryOpts.initialDate) +
+              " a " + formatDateBR(queryOpts.finalDate) + " · todos os status…")
+        );
+      }
+
+      var apiReported = null;
+      var prevMax = useIncremental ? cached.maxCreatedAt : "";
+      var pagesSinceSave = 0;
+
+      function presentPartial(merged, current, reportedPages) {
+        state.allItems = merged;
+        state.baseDay = day;
+        var view = applyClientFilters(merged);
+        renderRows(view.length ? view : sortItems(merged));
+        updateStats(view.length ? view : merged, merged.length, apiReported, null);
+        var showingFiltered = view.length > 0;
+        setMsg(
+          "Carregando página " + current + (reportedPages ? "/" + reportedPages : "") +
+          " · " + merged.length + " na base parcial" +
+          (showingFiltered
+            ? (" · " + view.length + " na tela com filtros")
+            : (" · filtros sem resultado ainda — exibindo " + merged.length + " recebidas")) +
+          "…"
+        );
+      }
+
+      function buildRecord(items, partial) {
+        return {
+          key: key,
+          baseDay: day,
+          lookbackDays: BASE_LOOKBACK_DAYS,
+          status: ALL_STATUSES,
+          items: items,
+          maxCreatedAt: maxCreatedAt(items),
+          updatedAt: new Date().toISOString(),
+          seededAt: (cached && cached.seededAt) || (!useIncremental ? new Date().toISOString() : null),
+          version: CACHE_VERSION,
+          partial: !!partial
+        };
+      }
+
+      return fetchAllPages(pageSize, queryOpts, function (current, reportedPages, collected, pr) {
+        if (pr && pr.totalItems != null) apiReported = pr.totalItems;
+        if (silent) return;
+
+        var pct = reportedPages ? Math.round((current / reportedPages) * 100) : 0;
+        setProgress(true, Math.min(99, Math.max(5, pct)));
+
+        var batch;
+        var mergedPreview;
+        if (useIncremental) {
+          batch = collected;
+          mergedPreview = mergeById(cached.items, batch);
+        } else {
+          batch = collected.filter(function (it) { return inSeedWindow(it, day); });
+          mergedPreview = batch;
+        }
+        presentPartial(mergedPreview, current, reportedPages);
+
+        pagesSinceSave += 1;
+        if (pagesSinceSave >= 10) {
+          pagesSinceSave = 0;
+          var partialRec = buildRecord(mergedPreview, true);
+          cachePut(partialRec);
+          updateCacheBanner(partialRec, "parcial " + mergedPreview.length + " itens");
+        }
+      }).then(function (fetched) {
+        var editionItems;
+        var novos = 0;
+
+        if (useIncremental) {
+          var incoming = fetched || [];
+          var reallyNew = incoming.filter(function (it) {
+            return !prevMax || String(it.createdAt) > prevMax;
+          });
+          // Mantém a semente + tudo que já estava; só acrescenta
+          editionItems = mergeById(cached.items, incoming);
+          novos = reallyNew.length;
+        } else {
+          editionItems = (fetched || []).filter(function (it) {
+            return inSeedWindow(it, day);
+          });
+          novos = editionItems.length;
+        }
+
+        var record = buildRecord(editionItems, false);
+
+        return cachePut(record).then(function () {
+          state.allItems = editionItems;
+          state.baseDay = day;
+          state.lastSyncAt = record.updatedAt;
+          updateCacheBanner(
+            record,
+            useIncremental ? ("+" + novos + " novos") : "carga inicial concluída"
+          );
+          if (!silent && !useIncremental) {
+            clearFilterInputs();
+          }
+          finishView(editionItems, {
+            secs: ((Date.now() - t0) / 1000).toFixed(1),
+            mode: useIncremental ? "incremental" : "inicial",
+            apiReported: apiReported,
+            novos: novos
+          });
+          return editionItems;
+        });
+      });
+    })
+      .catch(function (err) {
+        setMsg("Erro na sincronização: " + err.message, "err");
+        if (!state.allItems.length) {
+          $("tbody").innerHTML = '<tr><td colspan="6" class="empty">Falha ao carregar a base local.</td></tr>';
+        }
+        throw err;
+      })
+      .finally(function () {
+        state.syncing = false;
+        if (!silent) {
+          setProgress(false, 0);
+          setBusy(false);
+        }
+      });
+  }
+
+  /** Pesquisar: só aplica filtros na base já carregada (sem API). */
+  function doSearch() {
+    if (!state.allItems.length) {
+      setMsg("Base ainda não carregada. Iniciando carga…");
+      return syncDailyBase({ forceFull: true });
+    }
+    var t0 = Date.now();
+    finishView(state.allItems, {
+      secs: ((Date.now() - t0) / 1000).toFixed(2),
+      mode: "cache local",
+      novos: 0
+    });
+  }
+
+  function startAutoSync() {
+    if (state.syncTimer) clearInterval(state.syncTimer);
+    state.syncTimer = setInterval(function () {
+      // Sempre complemento — inclusive na virada do dia
+      syncDailyBase({ incremental: true, silent: true }).catch(function () {});
+    }, SYNC_INTERVAL_MS);
+  }
+
+  /** Abertura: usa base persistente se existir; senão carga inicial única (5 dias). */
+  function bootstrapDailyBase() {
+    return cacheGet(baseCacheKey()).then(function (cached) {
+      if (isUsableBaseCache(cached)) {
+        return syncDailyBase({}); // só cache
+      }
+      return syncDailyBase({ forceFull: true }); // semente única
+    });
+  }
+
+  function exportCsv() {
+    var items = state.lastPageItems || [];
+    if (!items.length) return;
+    var cols = [
+      "id", "title", "tipoPublicacao", "isImmediate", "status",
+      "dataPrevistaPublicacao", "createdAt", "pendingPublicationDate",
+      "journalName", "sectionHierarchy", "sectionCode",
+      "publisherName", "authCode", "height", "width", "paymentTypeName", "discountValue"
+    ];
+    var lines = [cols.join(";")];
+    items.forEach(function (it) {
+      var m = classifyModality(it);
+      var row = [
+        it.id,
+        it.title,
+        m.label,
+        it.isImmediate ? "true" : "false",
+        (it.status && (it.status.caption || it.status.name)) || "",
+        it.schedule,
+        it.createdAt,
+        it.pendingPublicationDate || "",
+        it.journalName,
+        it.sectionHierarchy,
+        it.sectionCode,
+        it.publisherName,
+        it.authCode,
+        it.height || "",
+        it.width || "",
+        it.paymentTypeName || "",
+        it.discountValue || ""
+      ].map(function (v) {
+        var s = String(v == null ? "" : v).replace(/"/g, '""');
+        return '"' + s + '"';
+      });
+      lines.push(row.join(";"));
+    });
+    var blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "publicacoes-doe-" + (
+      $("scheduleDate").value || $("createdAt").value || toISODate(new Date())
+    ) + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function loadJournals() {
+    return fetch(API + "/journals/filter?PageSize=100", {
+      headers: { accept: "application/json" }
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var items = data.items || [];
+        var sel = $("journal");
+        items.forEach(function (j) {
+          if (!j.isActive) return;
+          var opt = document.createElement("option");
+          opt.value = j.id;
+          opt.textContent = j.name;
+          sel.appendChild(opt);
+        });
+      })
+      .catch(function () { /* silencioso */ });
+  }
+
+  function buildLocalQuery(opts) {
+    opts = opts || {};
+    var params = new URLSearchParams();
+    var dates = getSearchDates();
+    if (dates.scheduleDay) params.set("scheduleDay", dates.scheduleDay);
+    if (dates.createdAtDay) params.set("createdDay", dates.createdAtDay);
+    var status = ($("status").value || "").trim();
+    if (status) params.set("status", status);
+    var journal = $("journal").value || "";
+    if (journal) params.set("journalId", journal);
+    var freeText = ($("q").value || "").trim();
+    if (freeText) params.set("q", freeText);
+    var title = ($("title").value || "").trim();
+    if (title) params.set("title", title);
+    var sectionCode = ($("sectionCode").value || "").trim();
+    if (sectionCode) params.set("sectionCode", sectionCode);
+    var publisher = ($("publisher").value || "").trim();
+    if (publisher) params.set("publisher", publisher);
+    var cpf = digitsOnly($("publisherDocument").value);
+    if (cpf) params.set("cpf", cpf);
+    var authCode = ($("authCode").value || "").trim();
+    if (authCode) params.set("authCode", authCode);
+    var publicationId = ($("publicationId").value || "").trim();
+    if (publicationId) params.set("id", publicationId);
+    var modality = $("modality").value || "all";
+    if (modality && modality !== "all") params.set("modality", modality);
+    params.set("sortBy", $("sortBy").value === "publicationDate" ? "schedule" : "createdAt");
+    params.set("page", String(opts.page != null ? opts.page : state.page || 1));
+    params.set("pageSize", String(opts.pageSize != null ? opts.pageSize : PAGE_SIZE));
+    return params;
+  }
+
+  function renderPager() {
+    var pager = $("pager");
+    var total = state.total || 0;
+    var page = state.page || 1;
+    var totalPages = state.totalPages || 1;
+    var pageSize = state.pageSize || PAGE_SIZE;
+    if (!total) {
+      pager.hidden = true;
+      return;
+    }
+    pager.hidden = false;
+    var from = (page - 1) * pageSize + 1;
+    var to = Math.min(page * pageSize, total);
+    $("pagerInfo").textContent =
+      "Mostrando " + from + "–" + to + " de " + total +
+      " · página " + page + " de " + totalPages +
+      " (" + pageSize + " por página)";
+    $("btnPageFirst").disabled = page <= 1;
+    $("btnPagePrev").disabled = page <= 1;
+    $("btnPageNext").disabled = page >= totalPages;
+    $("btnPageLast").disabled = page >= totalPages;
+  }
+
+  function goToPage(page) {
+    var target = Math.max(1, Math.min(Number(page) || 1, state.totalPages || 1));
+    if (target === state.page) return;
+    fetchFromNeon(target);
+  }
+
+  function fetchFromNeon(page) {
+    if (page != null) state.page = Math.max(1, Number(page) || 1);
+    var t0 = Date.now();
+    setBusy(true);
+    setMsg("Consultando Neon…");
+    return fetch(LOCAL_API + "/api/publications?" + buildLocalQuery({ page: state.page }).toString())
+      .then(function (r) { return r.json().then(function (data) {
+        if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+        return data;
+      }); })
+      .then(function (data) {
+        state.allItems = data.items || [];
+        state.total = data.total != null ? data.total : state.allItems.length;
+        state.page = data.page || state.page || 1;
+        state.pageSize = data.pageSize || PAGE_SIZE;
+        state.totalPages = data.totalPages || Math.max(1, Math.ceil(state.total / state.pageSize));
+        if (state.page > state.totalPages) {
+          state.page = state.totalPages;
+          return fetchFromNeon(state.page);
+        }
+        renderRows(state.allItems);
+        renderPager();
+        var counts = data.counts || {};
+        $("stats").hidden = false;
+        $("statApiReported").textContent = "—";
+        $("statTotal").textContent = String(counts.total != null ? counts.total : state.total);
+        $("statNew").textContent = "0";
+        $("statShown").textContent = String(state.total);
+        $("statNormal").textContent = String(counts.normal || 0);
+        $("statImmediate").textContent = String(counts.immediate || 0);
+        $("statIrregular").textContent = String(counts.irregular || 0);
+        syncModalityStatActive();
+        var secs = ((Date.now() - t0) / 1000).toFixed(2);
+        setMsg(
+          "Pronto em " + secs + "s (Neon): página " + state.page + "/" + state.totalPages +
+          " · " + state.allItems.length + " nesta página · " + state.total +
+          " no filtro (" + describeActiveFilters() + ").",
+          "ok"
+        );
+        setCacheMsg("Fonte: Neon via API local · " + formatDateTimeBR(new Date().toISOString()));
+      })
+      .catch(function (err) {
+        setMsg("Erro na consulta Neon: " + err.message + " — a API local está rodando (npm start)?", "err");
+      })
+      .finally(function () { setBusy(false); });
+  }
+
+  function runNeonSync(forceSeed) {
+    if (state.syncing) {
+      setMsg("Sincronização já em andamento…");
+      return Promise.resolve();
+    }
+    state.syncing = true;
+    setBusy(true);
+    setProgress(true, 15);
+    setMsg(forceSeed ? "Carga inicial no Neon (5 dias)…" : "Complementando Neon…");
+    var url = LOCAL_API + "/api/sync" + (forceSeed ? "?seed=1" : "");
+    return fetch(url, { method: "POST" })
+      .then(function (r) { return r.json().then(function (data) {
+        if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+        return data;
+      }); })
+      .then(function (result) {
+        setProgress(true, 100);
+        setCacheMsg(
+          "Neon sync (" + result.mode + "): +" + result.upserted +
+          " · total " + result.itemCount +
+          (result.maxCreatedAt ? " · max createdAt " + formatDateTimeBR(result.maxCreatedAt) : "")
+        );
+        clearFilterInputs();
+        return fetchFromNeon(1);
+      })
+      .catch(function (err) {
+        setMsg("Erro no sync: " + err.message, "err");
+      })
+      .finally(function () {
+        state.syncing = false;
+        setProgress(false, 0);
+        setBusy(false);
+      });
+  }
+
+  function ensureNeonReady() {
+    return fetch(LOCAL_API + "/api/health")
+      .then(function (r) {
+        if (!r.ok) throw new Error("API local indisponível");
+        return fetch(LOCAL_API + "/api/sync/status");
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (st) {
+        var seeded = st.sync && st.sync.seeded_at;
+        setCacheMsg(
+          "Neon: " + (st.itemCount || 0) + " publicações" +
+          (st.sync && st.sync.last_sync_at ? " · sync " + formatDateTimeBR(st.sync.last_sync_at) : "")
+        );
+        if (!seeded || !st.itemCount) {
+          return runNeonSync(true);
+        }
+        return fetchFromNeon(1);
+      });
+  }
+
+  function clearFilterInputs() {
+    $("q").value = "";
+    $("title").value = "";
+    $("sectionCode").value = "";
+    $("publisher").value = "";
+    $("publisherDocument").value = "";
+    $("authCode").value = "";
+    $("publicationId").value = "";
+    $("createdAt").value = "";
+    $("journal").value = "";
+    $("status").value = "";
+    $("modality").value = "all";
+    $("scheduleDate").value = "";
+    $("sortBy").value = "createdAt";
+  }
+
+  function refilterFromMemory() {
+    fetchFromNeon(1);
+  }
+
+  function filterByModalityFromDash(key) {
+    var current = $("modality").value || "all";
+    $("modality").value = current === key ? "all" : key;
+    syncModalityStatActive();
+    fetchFromNeon(1);
+  }
+
+  function formatAuditValue(value) {
+    if (value === true || value === "true") return "Sim";
+    if (value === false || value === "false") return "Não";
+    if (value == null || value === "") return "—";
+    var s = String(value);
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return formatDateBR(s);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return formatDateBR(s);
+    return s;
+  }
+
+  function formatAuditOpLine(op, isCreate) {
+    var name = op && op.propertyName ? String(op.propertyName) : "Campo";
+    var neu = formatAuditValue(op && op.newValue);
+    if (isCreate) return escapeHtml(name) + ": " + escapeHtml(neu);
+    var hasOld = op && Object.prototype.hasOwnProperty.call(op, "oldValue");
+    if (hasOld) {
+      var old = formatAuditValue(op.oldValue);
+      return "O(A) " + escapeHtml(name) + " passou de " + escapeHtml(old) + " para " + escapeHtml(neu);
+    }
+    return "O(A) " + escapeHtml(name) + " foi configurado(a) como " + escapeHtml(neu);
+  }
+
+  function auditTypeIcon() {
+    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M13.5 6.5l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  }
+
+  function renderAuditEntries(items) {
+    var body = $("auditBody");
+    if (!items || !items.length) {
+      body.innerHTML = '<div class="audit-empty">Nenhum registro de auditoria no período.</div>';
+      return;
+    }
+    body.innerHTML =
+      '<ul class="audit-timeline">' +
+      items.map(function (entry) {
+        var typeName = (entry.type && entry.type.name) || "";
+        var typeLabel = (entry.type && entry.type.description) || typeName || "Evento";
+        var isCreate = String(typeName).toLowerCase() === "create";
+        var ops = entry.operationsDescription || [];
+        var opsHtml = ops.map(function (op) {
+          return "<li>" + formatAuditOpLine(op, isCreate) + "</li>";
+        }).join("");
+        return (
+          '<li class="audit-entry">' +
+            '<div class="audit-when"><strong>' + escapeHtml(entry.formattedTime || "—") + "</strong>" +
+              escapeHtml(entry.formattedDate || "") +
+            "</div>" +
+            '<div class="audit-rail"><span class="audit-dot">' + auditTypeIcon() + "</span></div>" +
+            '<div class="audit-content">' +
+              '<div class="audit-type">' + escapeHtml(typeLabel) + "</div>" +
+              (opsHtml ? '<ul class="audit-ops">' + opsHtml + "</ul>" : "") +
+              '<div class="audit-author">Autor: ' + escapeHtml(entry.userName || "—") + "</div>" +
+            "</div>" +
+          "</li>"
+        );
+      }).join("") +
+      "</ul>";
+  }
+
+  function closeAuditModal() {
+    $("auditModal").classList.remove("open");
+    $("auditModal").setAttribute("aria-hidden", "true");
+    state.auditPublicationId = null;
+    var extra = $("auditExtra");
+    if (extra) {
+      extra.hidden = true;
+      extra.innerHTML = "";
+    }
+  }
+
+  function renderAuditExtra(pub) {
+    var extra = $("auditExtra");
+    if (!extra) return;
+    pub = pub || {};
+    var lines = [];
+    var dims = [];
+    if (pub.height) dims.push(pub.height);
+    if (pub.width) dims.push(pub.width);
+    if (dims.length) {
+      lines.push('<div class="meta"><strong>Dimensões</strong>: ' + escapeHtml(dims.join(" · ")) + "</div>");
+    }
+    var pay = [];
+    if (pub.paymentTypeName) pay.push(pub.paymentTypeName);
+    if (pub.discountValue) pay.push("Desconto: " + pub.discountValue);
+    if (pay.length) {
+      lines.push('<div class="meta"><strong>Pagamento</strong>: ' + escapeHtml(pay.join(" · ")) + "</div>");
+    }
+    if (pub.publicationTypeName) {
+      lines.push('<div class="meta"><strong>Tipo de Publicação</strong>: ' + escapeHtml(pub.publicationTypeName) + "</div>");
+    }
+    if (pub.journalName || pub.sectionName || pub.sectionCode) {
+      lines.push(
+        '<div class="meta"><strong>Caderno / Seção</strong>: ' +
+          escapeHtml([pub.journalName, pub.sectionName, pub.sectionCode].filter(Boolean).join(" · ")) +
+        "</div>"
+      );
+    }
+    if (!lines.length) {
+      extra.hidden = true;
+      extra.innerHTML = "";
+      return;
+    }
+    extra.hidden = false;
+    extra.innerHTML = lines.join("");
+  }
+
+  function openAuditModal(publication) {
+    if (!publication || !publication.id) return;
+    state.auditPublicationId = publication.id;
+    $("auditModalTitle").textContent = publication.title || "(sem título)";
+    renderAuditExtra(publication);
+    var day = dayOf(publication.createdAt) || todayISO();
+    $("auditStartDate").value = day;
+    $("auditEndDate").value = todayISO();
+    $("auditSort").value = "desc";
+    $("auditModal").classList.add("open");
+    $("auditModal").setAttribute("aria-hidden", "false");
+    loadPublicationAudit();
+  }
+
+  function loadPublicationAudit() {
+    var id = state.auditPublicationId;
+    if (!id) return;
+    var params = new URLSearchParams();
+    var start = ($("auditStartDate").value || "").trim();
+    var end = ($("auditEndDate").value || "").trim();
+    if (start) params.set("initialDate", start);
+    if (end) params.set("finalDate", end);
+    params.set("descending", $("auditSort").value === "asc" ? "0" : "1");
+    $("auditBody").innerHTML = '<div class="audit-empty">Carregando auditoria…</div>';
+    fetch(LOCAL_API + "/api/publications/" + encodeURIComponent(id) + "/audit?" + params.toString())
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+          return data;
+        });
+      })
+      .then(function (data) {
+        if (data.publication && data.publication.title) {
+          $("auditModalTitle").textContent = data.publication.title;
+        }
+        renderAuditExtra(data.publication || {});
+        renderAuditEntries(data.items || []);
+      })
+      .catch(function (err) {
+        $("auditBody").innerHTML =
+          '<div class="audit-empty">Erro ao carregar auditoria: ' +
+          escapeHtml(err.message) +
+          "</div>";
+      });
+  }
+
+  function loadJournals() {
+    return fetch(LOCAL_API + "/api/journals")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var sel = $("journal");
+        (data.items || []).forEach(function (j) {
+          if (!j.id) return;
+          var opt = document.createElement("option");
+          opt.value = j.id;
+          opt.textContent = j.name || j.id;
+          sel.appendChild(opt);
+        });
+      })
+      .catch(function () {
+        return fetch(API + "/journals/filter?PageSize=100", {
+          headers: { accept: "application/json" }
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var items = data.items || [];
+            var sel = $("journal");
+            items.forEach(function (j) {
+              if (!j.isActive) return;
+              var opt = document.createElement("option");
+              opt.value = j.id;
+              opt.textContent = j.name;
+              sel.appendChild(opt);
+            });
+          })
+          .catch(function () { /* silencioso */ });
+      });
+  }
+
+  clearFilterInputs();
+
+  $("btnSearch").addEventListener("click", function () { fetchFromNeon(1); });
+  $("btnPageFirst").addEventListener("click", function () { goToPage(1); });
+  $("btnPagePrev").addEventListener("click", function () { goToPage((state.page || 1) - 1); });
+  $("btnPageNext").addEventListener("click", function () { goToPage((state.page || 1) + 1); });
+  $("btnPageLast").addEventListener("click", function () { goToPage(state.totalPages || 1); });
+  $("btnFullRefresh").addEventListener("click", function () {
+    setMsg("Atualizando lista a partir do Neon…");
+    fetchFromNeon(1);
+  });
+  $("btnExport").addEventListener("click", exportCsv);
+  $("btnClear").addEventListener("click", function () {
+    clearFilterInputs();
+    syncModalityStatActive();
+    setMsg("Filtros limpos. Clique em Pesquisar para listar a base completa.", "ok");
+  });
+
+  $("btnCustomizeFilters").addEventListener("click", openFiltersModal);
+  $("btnFiltersCancel").addEventListener("click", closeFiltersModal);
+  $("btnAuditClose").addEventListener("click", closeAuditModal);
+  $("btnAuditBack").addEventListener("click", closeAuditModal);
+  $("auditModal").addEventListener("click", function (e) {
+    if (e.target === $("auditModal")) closeAuditModal();
+  });
+  ["auditStartDate", "auditEndDate", "auditSort"].forEach(function (id) {
+    $(id).addEventListener("change", function () {
+      if (state.auditPublicationId) loadPublicationAudit();
+    });
+  });
+  $("tbody").addEventListener("click", function (e) {
+    var row = e.target.closest("tr[data-id]");
+    if (!row) return;
+    var id = row.getAttribute("data-id");
+    var item = (state.lastPageItems || []).find(function (it) { return it.id === id; });
+    openAuditModal(item || { id: id, title: row.querySelector(".title-cell") ? row.querySelector(".title-cell").childNodes[0].textContent : "—" });
+  });
+  $("btnFiltersReset").addEventListener("click", function () {
+    saveFilterVisibility(DEFAULT_VISIBLE_FILTERS.slice());
+    applyFilterVisibility(DEFAULT_VISIBLE_FILTERS);
+    closeFiltersModal();
+    setMsg("Layout de filtros restaurado ao padrão.", "ok");
+  });
+  $("btnFiltersSave").addEventListener("click", function () {
+    var ids = [];
+    $("filtersModalList").querySelectorAll("input[data-filter-opt]").forEach(function (input) {
+      if (input.checked) ids.push(input.getAttribute("data-filter-opt"));
+    });
+    if (!ids.length) {
+      setMsg("Selecione ao menos um filtro visível.", "err");
+      return;
+    }
+    saveFilterVisibility(ids);
+    applyFilterVisibility(ids);
+    closeFiltersModal();
+    setMsg("Filtros personalizados salvos.", "ok");
+  });
+  $("filtersModal").addEventListener("click", function (e) {
+    if (e.target === $("filtersModal")) closeFiltersModal();
+  });
+
+  // Filtros só aplicam ao clicar em Pesquisar (ou Enter no campo)
+  ["q", "title", "sectionCode", "publisher", "publisherDocument", "authCode", "publicationId"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        fetchFromNeon(1);
+      }
+    });
+  });
+
+  ["statCardNormal", "statCardImmediate", "statCardIrregular"].forEach(function (id) {
+    var el = $(id);
+    if (!el) return;
+    el.addEventListener("click", function () {
+      filterByModalityFromDash(el.getAttribute("data-modality"));
+    });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        filterByModalityFromDash(el.getAttribute("data-modality"));
+      }
+    });
+  });
+
+  applyFilterVisibility(loadFilterVisibility());
+
+  loadJournals().then(function () {
+    setMsg("Conectando à API local / Neon…");
+    return ensureNeonReady();
+  }).catch(function (err) {
+    setMsg(
+      "Não foi possível falar com a API (" + (LOCAL_API || location.origin) + "). " +
+      (isLocalDevHint()
+        ? "No terminal: npm start — "
+        : "Verifique o serviço no Render — ") +
+      (err && err.message ? err.message : ""),
+      "err"
+    );
+  });
+
+  function isLocalDevHint() {
+    return LOCAL_API.indexOf("localhost") !== -1;
+  }
+})();
+  </script>
+</body>
+</html>

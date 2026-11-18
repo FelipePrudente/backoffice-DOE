@@ -1,0 +1,29 @@
+# Blueprint Render — DOE Backoffice (piloto)
+# Apenas Web Service (API + front). Sync via GitHub Actions.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: doe-backoffice-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: DOE_LOOKBACK_DAYS
+        value: "5"
+      - key: DOE_RETENTION_DAYS
+        value: "10"
+      - key: DOE_PAGE_SIZE
+        value: "25"
+      - key: DOE_ALLOW_INSECURE_TLS
+        value: "true"
